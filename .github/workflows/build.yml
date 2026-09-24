@@ -11,11 +11,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract ZIP file
+      - name: Extract ZIP and Find Project
         run: |
-          unzip -o subidha.zip
-          if [ ! -f "gradlew" ]; then
-            find . -mindepth 2 -name "gradlew" -exec cp -r $(dirname {})/. . \; || true
+          unzip -q -o subidha.zip
+          echo "=== Files List ==="
+          ls -la
+          
+          # Check for gradlew inside subdirectories
+          GRADLEW_FILE=$(find . -name "gradlew" -type f | head -n 1)
+          if [ -n "$GRADLEW_FILE" ]; then
+            APP_DIR=$(dirname "$GRADLEW_FILE")
+            echo "Gradlew found in: $APP_DIR"
+            cp -r "$APP_DIR"/* . 2>/dev/null || true
           fi
 
       - name: Set up JDK 17
@@ -24,15 +31,20 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleDebug
+          else
+            echo "=== Gradle wrapper not found! Directory contents: ==="
+            find . -maxdepth 3
+            exit 1
+          fi
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: my-app-apk
           path: "**/build/outputs/apk/debug/*.apk"
-          
