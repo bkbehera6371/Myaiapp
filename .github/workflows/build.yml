@@ -11,19 +11,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract ZIP and Find Project
+      - name: Extract ZIP
         run: |
           unzip -q -o subidha.zip
-          echo "=== Files List ==="
-          ls -la
-          
-          # Check for gradlew inside subdirectories
-          GRADLEW_FILE=$(find . -name "gradlew" -type f | head -n 1)
-          if [ -n "$GRADLEW_FILE" ]; then
-            APP_DIR=$(dirname "$GRADLEW_FILE")
-            echo "Gradlew found in: $APP_DIR"
-            cp -r "$APP_DIR"/* . 2>/dev/null || true
-          fi
+          echo "ZIP extracted."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -31,16 +22,19 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build Debug APK
+      - name: Generate Wrapper & Build APK
         run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-            ./gradlew assembleDebug
+          # Missing gradlew କୁ ଆପେ ଆପେ ତିଆରି କରିବା
+          if [ -f "gradle/wrapper/gradle-wrapper.properties" ]; then
+            GRADLE_VER=$(grep 'distributionUrl' gradle/wrapper/gradle-wrapper.properties | sed -n 's/.*gradle-\([0-9.]*\)-.*/\1/p')
+            echo "Detected Gradle Version: $GRADLE_VER"
+            gradle wrapper --gradle-version "$GRADLE_VER" || gradle wrapper
           else
-            echo "=== Gradle wrapper not found! Directory contents: ==="
-            find . -maxdepth 3
-            exit 1
+            gradle wrapper
           fi
+          
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         if: success()
@@ -48,3 +42,4 @@ jobs:
         with:
           name: my-app-apk
           path: "**/build/outputs/apk/debug/*.apk"
+          
