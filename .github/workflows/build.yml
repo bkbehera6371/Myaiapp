@@ -22,17 +22,20 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Generate Wrapper & Build APK
+      - name: Generate Keystore & Build APK
         run: |
-          # Missing gradlew କୁ ଆପେ ଆପେ ତିଆରି କରିବା
+          # Create debug.keystore in root and app directory
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          cp debug.keystore app/ 2>/dev/null || true
+
+          # Generate Gradle wrapper
           if [ -f "gradle/wrapper/gradle-wrapper.properties" ]; then
             GRADLE_VER=$(grep 'distributionUrl' gradle/wrapper/gradle-wrapper.properties | sed -n 's/.*gradle-\([0-9.]*\)-.*/\1/p')
-            echo "Detected Gradle Version: $GRADLE_VER"
             gradle wrapper --gradle-version "$GRADLE_VER" || gradle wrapper
           else
             gradle wrapper
           fi
-          
+
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
 
